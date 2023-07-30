@@ -1,0 +1,306 @@
+#include <amxmodx>
+#include <amxmisc>
+#include <cstrike>
+
+const MAX_BAD_WORDS = 1024
+const MAX_BAD_WORDS_LENGTH = 32
+new badWords[MAX_BAD_WORDS][MAX_BAD_WORDS_LENGTH]
+new badWordsCount
+
+const MAX_ALLOWED_WORDS = 512
+const MAX_ALLOWED_WORDS_LENGTH = 32
+new allowedWords[MAX_ALLOWED_WORDS][MAX_ALLOWED_WORDS_LENGTH]
+new allowedWordsCount
+
+new clientTag[33][33]
+new clientColor[33][5]
+new bool:clientFilter[33]
+
+new ctTeam
+new trTeam
+new specName
+new deadName
+new tagCust
+new tagDest
+new tagName
+
+static Float:lastMessageTime
+public plugin_init()
+{
+    register_plugin("Chat Tags With Filter", "1.0", "EfeDursun125")
+    ctTeam = register_cvar("chat_tag_ct_name", "Counter-Terrorist")
+    trTeam = register_cvar("chat_tag_tr_name", "Terrorist")
+    specName = register_cvar("chat_tag_spec_name", "SPEC")
+    deadName = register_cvar("chat_tag_dead_name", "DEAD")
+    tagCust = register_cvar("chat_tag_use_custom_folder", "0")
+    tagDest = register_cvar("chat_tag_custom_folder_dest", "C:\ExampleFolder\cstrike\addons\amxmodx\configs")
+    tagName = register_cvar("chat_tag_folder_name", "ChatTAGS")
+    register_message(get_user_msgid("SayText"), "CustomChatMessage")
+    LoadWords()
+    lastMessageTime = 0.0
+}
+
+public CustomChatMessage(msg_id, msg_dest, rcvr)
+{
+    new string[26]
+    get_msg_arg_string(2, string, 25)
+
+    if (!equal(string, "#Cstrike_Chat", 13))
+        return PLUGIN_CONTINUE
+
+    new Float:time = get_gametime()
+    if (lastMessageTime > time)
+        return PLUGIN_HANDLED
+
+    new playerName[80]
+    new playerTeamMessage[32]
+    new chatMessage[256]
+    new player = get_msg_arg_int(1)
+    new CsTeams:playerTeam = cs_get_user_team(player)
+    get_msg_arg_string(4, chatMessage, 255)
+    trim(chatMessage)
+    get_user_name(player, playerName, charsmax(playerName))
+
+    new bool:spec = false
+    new pSize = charsmax(playerTeamMessage)
+    new bool:teamSay = !equal(string, "#Cstrike_Chat_All", 17)
+    if (!teamSay)
+    {
+        if (playerTeam != CS_TEAM_T && playerTeam != CS_TEAM_CT)
+        {
+            new teamName[28]
+            get_pcvar_string(specName, teamName, charsmax(teamName))
+            formatex(playerTeamMessage, pSize, "*%s* ", teamName)
+            spec = true
+        }
+        else
+            formatex(playerTeamMessage, pSize, "")
+    }
+    else
+    {
+        switch (playerTeam)
+        {
+            case CS_TEAM_T:
+            {
+                new teamName[28]
+                get_pcvar_string(trTeam, teamName, charsmax(teamName))
+                formatex(playerTeamMessage, pSize, "(%s) ", teamName)
+            }
+            case CS_TEAM_CT:
+            {
+                new teamName[28]
+                get_pcvar_string(ctTeam, teamName, charsmax(teamName))
+                formatex(playerTeamMessage, pSize, "(%s) ", teamName)
+            }
+            default:
+            {
+                new teamName[28]
+                get_pcvar_string(specName, teamName, charsmax(teamName))
+                formatex(playerTeamMessage, pSize, "(%s) ", teamName)
+                spec = true
+            }
+        }
+    }
+
+    if (is_bad_word(player, chatMessage))
+    {
+        new text[255]
+        if (!is_user_alive(player))
+        {
+            new teamName[32]
+            get_pcvar_string(deadName, teamName, charsmax(teamName))
+            formatex(text, charsmax(text), "^x01*%s* %s%s^x03%s ^x01:%s  %s", teamName, playerTeamMessage, clientTag[player], playerName, clientColor[player], chatMessage)
+        }
+        else
+            formatex(text, charsmax(text), "^x01%s%s^x03%s ^x01:%s  %s", playerTeamMessage, clientTag[player], playerName, clientColor[player], chatMessage)
+
+        message_begin(MSG_ONE, get_user_msgid("SayText"), _, player)
+        write_byte(player)
+        write_string(text)
+        message_end()
+        server_print("Player %s used a bad word, and the message is hided from other players", playerName)
+        server_print("Hidden message: %s", text)
+    }
+    else
+    {
+        new sayText = get_user_msgid("SayText")
+        new maxPlayers = get_maxplayers()
+        for (new i = 1; i <= maxPlayers; i++)
+        {
+            if (!is_user_connected(i))
+                continue
+
+            if (is_user_bot(i))
+                continue
+
+            if (teamSay && cs_get_user_team(i) != playerTeam)
+                continue
+
+            new text[255]
+            if (!spec && !is_user_alive(player))
+            {
+                new teamName[32]
+                get_pcvar_string(deadName, teamName, charsmax(teamName))
+                formatex(text, charsmax(text), "^x01*%s* %s%s^x03%s ^x01:%s  %s", teamName, playerTeamMessage, clientTag[player], playerName, clientColor[player], chatMessage)
+            }
+            else
+                formatex(text, charsmax(text), "^x01%s%s^x03%s ^x01:%s  %s", playerTeamMessage, clientTag[player], playerName, clientColor[player], chatMessage)
+
+            message_begin(MSG_ONE, sayText, _, i)
+            write_byte(player)
+            write_string(text)
+            message_end()
+        }
+    }
+
+    lastMessageTime = time + 0.1
+    return PLUGIN_HANDLED
+}
+
+public client_putinserver(id)
+{
+    clientTag[id] = ""
+    clientColor[id] = "^x01"
+    clientFilter[id] = true
+    if (is_user_bot(id))
+        clientFilter[id] = false
+    set_task(2.22, "client_load_tag", id)
+}
+
+public client_load_tag(id)
+{
+    new playerName[255]
+    get_user_name(id, playerName, charsmax(playerName))
+
+    if (strlen(playerName) < 3)
+        return
+
+    trim(playerName)
+
+    new path[255]
+    if (get_pcvar_num(tagCust) != 1)
+        get_configsdir(path, charsmax(path))
+    else
+    {
+        new name[96]
+        get_pcvar_string(tagDest, name, charsmax(name))
+        formatex(path, charsmax(path), "%s", name)
+    }
+
+    new folderName[64]
+    get_pcvar_string(tagName, folderName, charsmax(folderName))
+    formatex(path, charsmax(path), "%s/%s", path, folderName)
+
+    if (!dir_exists(path))
+        mkdir(path)
+
+    formatex(path, charsmax(path), "%s/%s.tag", path, playerName)
+
+    new file = fopen(path, "rt+")
+    if (file)
+    {
+        new text[255]
+        fgets(file, text, charsmax(text))
+        trim(text)
+
+        if (containi(text, "[color=green]") != -1)
+            clientColor[id] = "^x04"
+        else if (containi(text, "[color=team]") != -1)
+            clientColor[id] = "^x03"
+        
+        if (containi(text, "[filter=false]") != -1)
+            clientFilter[id] = false
+
+        replace_all(text, charsmax(text), "[color=green]", "")
+        replace_all(text, charsmax(text), "[color=team]", "")
+        replace_all(text, charsmax(text), "[color=default]", "")
+        replace_all(text, charsmax(text), "[filter=false]", "")
+        replace_all(text, charsmax(text), "[filter=true]", "")
+
+        trim(text)
+        formatex(clientTag[id], 33, "^x04[%s]^x03 ", text)
+        fclose(file)
+    }
+}
+
+LoadWords()
+{
+    new path[255]
+    get_configsdir(path, charsmax(path))
+    new file[255]
+    formatex(file, charsmax(file), "%s/word_blacklist.ini", path)
+
+    badWordsCount = 0
+    new lineText[MAX_BAD_WORDS_LENGTH]
+    while (badWordsCount < MAX_BAD_WORDS && read_file(file, badWordsCount, lineText, MAX_BAD_WORDS_LENGTH)) 
+    {
+        if (strlen(lineText) < 2)
+            continue
+        
+        trim(lineText)
+        badWords[badWordsCount] = lineText
+        badWordsCount++ 
+    }
+
+    formatex(file, charsmax(file), "%s/word_whitelist.ini", path)
+
+    allowedWordsCount = 0
+    new lineText2[MAX_ALLOWED_WORDS_LENGTH]
+    while (allowedWordsCount < MAX_ALLOWED_WORDS && read_file(file, allowedWordsCount, lineText2, MAX_ALLOWED_WORDS_LENGTH)) 
+    {
+        if (strlen(lineText2) < 2)
+            continue
+        
+        trim(lineText2)
+        allowedWords[allowedWordsCount] = lineText2
+        allowedWordsCount++ 
+    }
+}
+
+stock bool:is_bad_word(id, word[])
+{
+    if (!clientFilter[id])
+        return false
+
+    if (badWordsCount == 0)
+        return false
+    
+    new cleaned_word[255]
+    formatex(cleaned_word, charsmax(cleaned_word), word)
+
+    if (allowedWordsCount != 0)
+    {
+        for (new i = 0; i < allowedWordsCount - 1; i++)
+            replace_all(cleaned_word, charsmax(cleaned_word), allowedWords[i], "")
+    }
+
+    new size = charsmax(cleaned_word)
+    replace_all(cleaned_word, size, "|<", "k")
+    replace_all(cleaned_word, size, "|>", "p")
+    replace_all(cleaned_word, size, "()", "o")
+    replace_all(cleaned_word, size, "[]", "o")
+    replace_all(cleaned_word, size, "{}", "o")
+    replace_all(cleaned_word, size, "@", "a")
+    replace_all(cleaned_word, size, "$", "s")
+    replace_all(cleaned_word, size, "0", "o")
+    replace_all(cleaned_word, size, "7", "t")
+    replace_all(cleaned_word, size, "3", "e")
+    replace_all(cleaned_word, size, "5", "s")
+    replace_all(cleaned_word, size, "<", "c")
+    replace_all(cleaned_word, charsmax(cleaned_word), "_", "")
+    replace_all(cleaned_word, charsmax(cleaned_word), "-", "")
+    replace_all(cleaned_word, charsmax(cleaned_word), "|", "")
+    replace_all(cleaned_word, charsmax(cleaned_word), ":", "")
+    replace_all(cleaned_word, charsmax(cleaned_word), ";", "")
+    replace_all(cleaned_word, charsmax(cleaned_word), ".", "")
+    replace_all(cleaned_word, charsmax(cleaned_word), ",", "")
+    replace_all(cleaned_word, charsmax(cleaned_word), " ", "")
+
+    for (new i = 0; i < badWordsCount - 1; i++)
+    {
+        if (containi(cleaned_word, badWords[i]) != -1)
+            return true
+    }
+
+    return false
+}
