@@ -15,4 +15,3 @@ This plugin lets you to give players custom chat tags and it has build-in swear/
 - chat_tag_dead_name "DEAD" // message for dead
 - chat_tag_use_custom_folder "0" // to save custom dir, multi server support (2 servers 1 save file, players will be happy)
 - chat_tag_custom_folder_dest "C:\ExampleFolder\cstrike\addons\amxmodx\configs" // path for custom dir, multiple servers can acces this path
-- chat_tag_folder_name "ChatTAGS" // custom folder name
