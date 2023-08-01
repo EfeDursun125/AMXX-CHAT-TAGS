@@ -22,19 +22,17 @@ new specName
 new deadName
 new tagCust
 new tagDest
-new tagName
 
 static Float:lastMessageTime
 public plugin_init()
 {
-    register_plugin("Chat Tags With Filter", "1.0", "EfeDursun125")
+    register_plugin("Chat Tags With Filter", "1.1", "EfeDursun125")
     ctTeam = register_cvar("chat_tag_ct_name", "Counter-Terrorist")
     trTeam = register_cvar("chat_tag_tr_name", "Terrorist")
     specName = register_cvar("chat_tag_spec_name", "SPEC")
     deadName = register_cvar("chat_tag_dead_name", "DEAD")
     tagCust = register_cvar("chat_tag_use_custom_folder", "0")
     tagDest = register_cvar("chat_tag_custom_folder_dest", "C:\ExampleFolder\cstrike\addons\amxmodx\configs")
-    tagName = register_cvar("chat_tag_folder_name", "ChatTAGS")
     register_message(get_user_msgid("SayText"), "CustomChatMessage")
     LoadWords()
     lastMessageTime = 0.0
@@ -60,7 +58,7 @@ public CustomChatMessage(msg_id, msg_dest, rcvr)
     get_msg_arg_string(4, chatMessage, 255)
     trim(chatMessage)
     get_user_name(player, playerName, charsmax(playerName))
-
+    new bool:isAlive = bool:is_user_alive(player)
     new bool:spec = false
     new pSize = charsmax(playerTeamMessage)
     new bool:teamSay = !equal(string, "#Cstrike_Chat_All", 17)
@@ -105,7 +103,7 @@ public CustomChatMessage(msg_id, msg_dest, rcvr)
     if (is_bad_word(player, chatMessage))
     {
         new text[255]
-        if (!is_user_alive(player))
+        if (!isAlive)
         {
             new teamName[32]
             get_pcvar_string(deadName, teamName, charsmax(teamName))
@@ -137,7 +135,7 @@ public CustomChatMessage(msg_id, msg_dest, rcvr)
                 continue
 
             new text[255]
-            if (!spec && !is_user_alive(player))
+            if (!spec && !isAlive)
             {
                 new teamName[32]
                 get_pcvar_string(deadName, teamName, charsmax(teamName))
@@ -153,7 +151,7 @@ public CustomChatMessage(msg_id, msg_dest, rcvr)
         }
     }
 
-    lastMessageTime = time + 0.1
+    lastMessageTime = time + 0.111
     return PLUGIN_HANDLED
 }
 
@@ -187,46 +185,56 @@ public client_load_tag(id)
         formatex(path, charsmax(path), "%s", name)
     }
 
-    new folderName[64]
-    get_pcvar_string(tagName, folderName, charsmax(folderName))
-    formatex(path, charsmax(path), "%s/%s", path, folderName)
+    new file[255]
+    formatex(file, charsmax(file), "%s/chat_tags.ini", path)
 
-    if (!dir_exists(path))
-        mkdir(path)
-
-    formatex(path, charsmax(path), "%s/%s.tag", path, playerName)
-
-    new file = fopen(path, "rt+")
-    if (file)
+    new line = 0
+    new text[128]
+    while (read_file(file, line, text, 128)) 
     {
-        new text[255]
-        fgets(file, text, charsmax(text))
-        trim(text)
-
-        if (containi(text, "[color=green]") != -1)
-            clientColor[id] = "^x04"
-        else if (containi(text, "[color=team]") != -1)
-            clientColor[id] = "^x03"
+        if (strlen(text) < 2)
+            continue
         
-        if (containi(text, "[filter=false]") != -1)
-            clientFilter[id] = false
-
-        replace_all(text, charsmax(text), "[color=green]", "")
-        replace_all(text, charsmax(text), "[color=team]", "")
-        replace_all(text, charsmax(text), "[color=default]", "")
-        replace_all(text, charsmax(text), "[filter=false]", "")
-        replace_all(text, charsmax(text), "[filter=true]", "")
-
         trim(text)
-        formatex(clientTag[id], 33, "^x04[%s]^x03 ", text)
-        fclose(file)
+
+        if (containi(text, playerName) != -1)
+        {
+            replace_all(text, charsmax(text), playerName, "")
+
+            if (containi(text, "[color=green]") != -1)
+                clientColor[id] = "^x04"
+            else if (containi(text, "[color=team]") != -1)
+                clientColor[id] = "^x03"
+        
+            if (containi(text, "[filter=off]") != -1)
+                clientFilter[id] = false
+
+            replace_all(text, charsmax(text), "[color=green]", "")
+            replace_all(text, charsmax(text), "[color=team]", "")
+            replace_all(text, charsmax(text), "[color=default]", "")
+            replace_all(text, charsmax(text), "[filter=off]", "")
+            replace_all(text, charsmax(text), "[filter=on]", "")
+
+            trim(text)
+            formatex(clientTag[id], 33, "^x04[%s]^x03 ", text)
+        }
+
+        line++
     }
 }
 
 LoadWords()
 {
     new path[255]
-    get_configsdir(path, charsmax(path))
+    if (get_pcvar_num(tagCust) != 1)
+        get_configsdir(path, charsmax(path))
+    else
+    {
+        new name[96]
+        get_pcvar_string(tagDest, name, charsmax(name))
+        formatex(path, charsmax(path), "%s", name)
+    }
+
     new file[255]
     formatex(file, charsmax(file), "%s/word_blacklist.ini", path)
 
@@ -234,7 +242,7 @@ LoadWords()
     new lineText[MAX_BAD_WORDS_LENGTH]
     while (badWordsCount < MAX_BAD_WORDS && read_file(file, badWordsCount, lineText, MAX_BAD_WORDS_LENGTH)) 
     {
-        if (strlen(lineText) < 2)
+        if (strlen(lineText) < 1)
             continue
         
         trim(lineText)
@@ -248,7 +256,7 @@ LoadWords()
     new lineText2[MAX_ALLOWED_WORDS_LENGTH]
     while (allowedWordsCount < MAX_ALLOWED_WORDS && read_file(file, allowedWordsCount, lineText2, MAX_ALLOWED_WORDS_LENGTH)) 
     {
-        if (strlen(lineText2) < 2)
+        if (strlen(lineText2) < 1)
             continue
         
         trim(lineText2)
@@ -270,7 +278,7 @@ stock bool:is_bad_word(id, word[])
 
     if (allowedWordsCount != 0)
     {
-        for (new i = 0; i < allowedWordsCount - 1; i++)
+        for (new i = 0; i < allowedWordsCount; i++)
             replace_all(cleaned_word, charsmax(cleaned_word), allowedWords[i], "")
     }
 
@@ -296,7 +304,7 @@ stock bool:is_bad_word(id, word[])
     replace_all(cleaned_word, charsmax(cleaned_word), ",", "")
     replace_all(cleaned_word, charsmax(cleaned_word), " ", "")
 
-    for (new i = 0; i < badWordsCount - 1; i++)
+    for (new i = 0; i < badWordsCount; i++)
     {
         if (containi(cleaned_word, badWords[i]) != -1)
             return true
