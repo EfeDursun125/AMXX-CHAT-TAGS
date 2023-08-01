@@ -2,7 +2,7 @@
 This plugin lets you to give players custom chat tags and it has build-in swear/bad word filter plus it has whitelist for words
 
 # HOW TO USE?
-1. Create a file at configs/ChatTAGS, rename it PlayerName.tag and open it with notepad
+1. Open chat_tags.ini in configs folder
 2. After that write what tag you want and save it, follow other steps if you want more options
 3. To add *CHAT MESSAGE* colors use these: [color=green], [color=team], [color=default]
 4. To disable swear/bad word filter for the player use this: [filter=false]
