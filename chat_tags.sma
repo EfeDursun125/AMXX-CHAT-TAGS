@@ -202,7 +202,7 @@ public client_load_tag(id)
         
         trim(text)
 
-        if (contain(text, playerName) != -1)
+        if (strfind(text, playerName) != -1)
         {
             replace_all(text, charsmax(text), playerName, "")
 
@@ -222,13 +222,7 @@ public client_load_tag(id)
 
             trim(text)
 
-            if (equal(text, playerName))
-                formatex(clientTag[id], 33, "^x04[%s]^x03 ", text)
-            else
-            {
-                clientFilter[id] = false
-                clientColor[id] = "^x01"
-            }
+            formatex(clientTag[id], 33, "^x04[%s]^x03 ", text)
         }
 
         line++
