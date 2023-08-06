@@ -12,6 +12,11 @@ const MAX_ALLOWED_WORDS_LENGTH = 32
 new allowedWords[MAX_ALLOWED_WORDS][MAX_ALLOWED_WORDS_LENGTH]
 new allowedWordsCount
 
+const MAX_RANDOM_NAMES = 128
+const MAX_RANDOM_NAMES_LENGTH = 254
+new randomNames[MAX_RANDOM_NAMES][MAX_RANDOM_NAMES_LENGTH]
+new randomNamesCount
+
 new clientTag[33][33]
 new clientColor[33][5]
 new bool:clientFilter[33]
@@ -197,7 +202,7 @@ public client_load_tag(id)
         
         trim(text)
 
-        if (containi(text, playerName) != -1)
+        if (contain(text, playerName) != -1)
         {
             replace_all(text, charsmax(text), playerName, "")
 
@@ -216,10 +221,25 @@ public client_load_tag(id)
             replace_all(text, charsmax(text), "[filter=on]", "")
 
             trim(text)
-            formatex(clientTag[id], 33, "^x04[%s]^x03 ", text)
+
+            if (equal(text, playerName))
+                formatex(clientTag[id], 33, "^x04[%s]^x03 ", text)
+            else
+            {
+                clientFilter[id] = false
+                clientColor[id] = "^x01"
+            }
         }
 
         line++
+    }
+
+    if (clientFilter[id])
+    {
+        new name[256]
+        get_user_name(id, name, 255)
+        if (is_bad_word(id, name))
+            set_user_info(id, "name", randomNames[random_num(0, randomNamesCount - 1)])
     }
 }
 
@@ -316,6 +336,20 @@ LoadWords()
         trim(lineText2)
         allowedWords[allowedWordsCount] = lineText2
         allowedWordsCount++ 
+    }
+
+    formatex(file, charsmax(file), "%s/random_names.ini", path)
+
+    randomNamesCount = 0
+    new lineText3[MAX_RANDOM_NAMES_LENGTH]
+    while (randomNamesCount < MAX_ALLOWED_WORDS && read_file(file, randomNamesCount, lineText3, MAX_RANDOM_NAMES_LENGTH)) 
+    {
+        if (strlen(lineText3) < 1)
+            continue
+
+        trim(lineText3)
+        randomNames[randomNamesCount] = lineText3
+        randomNamesCount++
     }
 }
 
