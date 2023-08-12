@@ -1,6 +1,7 @@
 #include <amxmodx>
 #include <amxmisc>
 #include <cstrike>
+#include <fakemeta>
 
 const MAX_BAD_WORDS = 1024
 const MAX_BAD_WORDS_LENGTH = 32
@@ -20,6 +21,7 @@ new randomNamesCount
 new clientTag[33][33]
 new clientColor[33][5]
 new bool:clientFilter[33]
+new bool:clientBLOCK[33]
 
 new ctTeam
 new trTeam
@@ -31,19 +33,20 @@ new tagDest
 static Float:lastMessageTime
 public plugin_init()
 {
-    register_plugin("Chat Tags With Filter", "1.1", "EfeDursun125")
+    register_plugin("Chat Tags With Filter", "1.2", "EfeDursun125")
     ctTeam = register_cvar("chat_tag_ct_name", "Counter-Terrorist")
     trTeam = register_cvar("chat_tag_tr_name", "Terrorist")
     specName = register_cvar("chat_tag_spec_name", "SPEC")
     deadName = register_cvar("chat_tag_dead_name", "DEAD")
     tagCust = register_cvar("chat_tag_use_custom_folder", "0")
     tagDest = register_cvar("chat_tag_custom_folder_dest", "C:\ExampleFolder\cstrike\addons\amxmodx\configs")
-    register_message(get_user_msgid("SayText"), "CustomChatMessage")
+    register_message(get_user_msgid("SayText"), "customChatMessage")
+    register_forward(FM_ClientUserInfoChanged, "clientBlockName")
     LoadWords()
     lastMessageTime = 0.0
 }
 
-public CustomChatMessage(msg_id, msg_dest, rcvr)
+public customChatMessage(msg_id, msg_dest, rcvr)
 {
     new string[26]
     get_msg_arg_string(2, string, 25)
@@ -165,10 +168,35 @@ public client_putinserver(id)
     clientTag[id] = ""
     clientColor[id] = "^x01"
     clientFilter[id] = true
+    clientBLOCK[id] = true
     if (is_user_bot(id))
+    {
         clientFilter[id] = false
+        clientBLOCK[id] = false
+    }
     set_task(2.22, "client_load_tag", id)
 }
+
+public clientBlockName(id)
+{
+    if (!clientBLOCK[id])
+        return FMRES_IGNORED
+    
+    static const name[] = "name"
+    static szOldName[32], szNewName[32]
+    pev(id, pev_netname, szOldName, charsmax(szOldName))
+    if (szOldName[0])
+    {
+        get_user_info(id, name, szNewName, charsmax(szNewName))
+        if (!equal(szOldName, szNewName))
+        {
+            set_user_info(id, name, szOldName)
+            return FMRES_HANDLED
+        }
+    }
+
+    return FMRES_IGNORED
+} 
 
 public client_load_tag(id)
 {
@@ -230,11 +258,20 @@ public client_load_tag(id)
 
     if (clientFilter[id])
     {
+        clientBLOCK[id] = false
+
         new name[256]
         get_user_name(id, name, 255)
         if (is_bad_word(id, name))
             set_user_info(id, "name", randomNames[random_num(0, randomNamesCount - 1)])
+        
+        set_task(0.55, "client_block", id)
     }
+}
+
+public client_block(id)
+{
+    clientBLOCK[id] = true
 }
 
 LoadWords()
