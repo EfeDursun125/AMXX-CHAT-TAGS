@@ -120,7 +120,7 @@ public customChatMessage(msg_id, msg_dest, rcvr)
         else
             formatex(text, charsmax(text), "^x01%s%s^x03%s ^x01:%s  %s", playerTeamMessage, clientTag[player], playerName, clientColor[player], chatMessage)
 
-        message_begin(MSG_ONE, get_user_msgid("SayText"), _, player)
+        message_begin(MSG_ONE_UNRELIABLE, get_user_msgid("SayText"), _, player)
         write_byte(player)
         write_string(text)
         message_end()
@@ -130,8 +130,8 @@ public customChatMessage(msg_id, msg_dest, rcvr)
     else
     {
         new sayText = get_user_msgid("SayText")
-        new maxPlayers = get_maxplayers()
-        for (new i = 1; i <= maxPlayers; i++)
+        new maxPlayers = get_maxplayers() + 1
+        for (new i = 1; i < maxPlayers; i++)
         {
             if (!is_user_connected(i))
                 continue
@@ -152,7 +152,7 @@ public customChatMessage(msg_id, msg_dest, rcvr)
             else
                 formatex(text, charsmax(text), "^x01%s%s^x03%s ^x01:%s  %s", playerTeamMessage, clientTag[player], playerName, clientColor[player], chatMessage)
 
-            message_begin(MSG_ONE, sayText, _, i)
+            message_begin(MSG_ONE_UNRELIABLE, sayText, _, i)
             write_byte(player)
             write_string(text)
             message_end()
