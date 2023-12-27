@@ -61,8 +61,8 @@ public setHook(pcvar, const oldValue[], const newValue[])
 {
 	if (oldValue[0] != 1 && newValue[0] == 1)
 	{
-        id = register_forward(FM_ClientUserInfoChanged, "clientBlockName")
-        id2 = register_forward(FM_ClientUserInfoChanged, "clientBlockName", 1)
+		id = register_forward(FM_ClientUserInfoChanged, "clientBlockName")
+		id2 = register_forward(FM_ClientUserInfoChanged, "clientBlockName", 1)
 	}
 
 	if (oldValue[0] == 1 && newValue[0] != 1)
@@ -303,7 +303,7 @@ public client_load_tag(id)
         if (is_bad_word(id, name))
             set_user_info(id, "name", randomNames[random_num(0, randomNamesCount - 1)])
         
-        set_task(0.55, "client_block", id)
+        set_task(0.555, "client_block", id)
     }
 #endif
 }
