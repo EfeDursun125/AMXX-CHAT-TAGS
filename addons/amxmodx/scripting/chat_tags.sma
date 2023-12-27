@@ -339,7 +339,7 @@ LoadWords()
     while (badWordsCount < MAX_BAD_WORDS && !feof(file)) 
     {
         fgets(file, lineText, MAX_BAD_WORDS_LENGTH)
-        replace(lineText, MAX_BAD_WORDS_LENGTH, "^n", "")
+        replace_all(lineText, MAX_BAD_WORDS_LENGTH, "^n", "")
 
         if (lineText[0] == ';' || !lineText[0])
             continue
@@ -373,7 +373,7 @@ LoadWords()
 
         trim(lineText)
         badWords[badWordsCount] = lineText
-        badWordsCount++ 
+        badWordsCount++
     }
 
     fclose(file)
@@ -387,7 +387,7 @@ LoadWords()
     while (allowedWordsCount < MAX_ALLOWED_WORDS && !feof(file)) 
     {
         fgets(file, lineText2, MAX_ALLOWED_WORDS_LENGTH)
-        replace(lineText2, MAX_ALLOWED_WORDS_LENGTH, "^n", "")
+        replace_all(lineText2, MAX_ALLOWED_WORDS_LENGTH, "^n", "")
 
         if (lineText2[0] == ';' || !lineText2[0])
             continue
@@ -421,11 +421,12 @@ LoadWords()
 
         trim(lineText2)
         allowedWords[allowedWordsCount] = lineText2
-        allowedWordsCount++ 
+        allowedWordsCount++
     }
 
-#if AMXX_VERSION_NUM > 182
     fclose(file)
+
+#if AMXX_VERSION_NUM > 182
     formatex(fileName, charsmax(fileName), "%s/econf/chat_tags/random_names.ini", path)
     file = fopen(fileName, "rt")
     if (!file)
@@ -436,7 +437,7 @@ LoadWords()
     while (randomNamesCount < MAX_RANDOM_NAMES && !feof(file)) 
     {
         fgets(file, lineText3, MAX_RANDOM_NAMES_LENGTH)
-        replace(lineText3, MAX_RANDOM_NAMES_LENGTH, "^n", "")
+        replace_all(lineText3, MAX_RANDOM_NAMES_LENGTH, "^n", "")
 
         if (lineText3[0] == ';' || !lineText3[0])
             continue
@@ -445,6 +446,8 @@ LoadWords()
         randomNames[randomNamesCount] = lineText3
         randomNamesCount++
     }
+
+    fclose(file)
 #endif
 }
 
