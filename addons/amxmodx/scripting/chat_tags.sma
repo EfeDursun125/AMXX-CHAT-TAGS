@@ -3,13 +3,13 @@
 #include <cstrike>
 #include <fakemeta>
 
-const MAX_BAD_WORDS = 512
-const MAX_BAD_WORDS_LENGTH = 16
+const MAX_BAD_WORDS = 1024
+const MAX_BAD_WORDS_LENGTH = 32
 new badWords[MAX_BAD_WORDS][MAX_BAD_WORDS_LENGTH]
 new badWordsCount
 
-const MAX_ALLOWED_WORDS = 256
-const MAX_ALLOWED_WORDS_LENGTH = 16
+const MAX_ALLOWED_WORDS = 1024
+const MAX_ALLOWED_WORDS_LENGTH = 32
 new allowedWords[MAX_ALLOWED_WORDS][MAX_ALLOWED_WORDS_LENGTH]
 new allowedWordsCount
 
