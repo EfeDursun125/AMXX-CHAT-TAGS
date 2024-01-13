@@ -3,21 +3,19 @@
 #include <cstrike>
 #include <fakemeta>
 
-const MAX_BAD_WORDS = 1024
-const MAX_BAD_WORDS_LENGTH = 32
-new badWords[MAX_BAD_WORDS][MAX_BAD_WORDS_LENGTH]
-new badWordsCount
+// for VIP Manager support:
+// https://github.com/EfeDursun125/AMXX-VIP-Manager
+forward vip_putinserver(id, level)
 
-const MAX_ALLOWED_WORDS = 1024
-const MAX_ALLOWED_WORDS_LENGTH = 32
-new allowedWords[MAX_ALLOWED_WORDS][MAX_ALLOWED_WORDS_LENGTH]
-new allowedWordsCount
+#define MAX_BAD_WORDS_LENGTH 32
+new Array:badWords
+
+#define MAX_ALLOWED_WORDS_LENGTH 32
+new Array:allowedWords
 
 #if AMXX_VERSION_NUM > 182
-const MAX_RANDOM_NAMES = 32
-const MAX_RANDOM_NAMES_LENGTH = 32
-new randomNames[MAX_RANDOM_NAMES][MAX_RANDOM_NAMES_LENGTH]
-new randomNamesCount
+#define MAX_RANDOM_NAMES_LENGTH 32
+new Array:randomNames
 #endif
 
 new clientTag[33][33]
@@ -34,23 +32,34 @@ new specName
 new deadName
 new tagCust
 new tagDest
+new tagFilter
 
 new Float:lastMessageTime
 public plugin_init()
 {
-    register_plugin("Chat Tags With Filter", "1.3", "EfeDursun125")
-    ctTeam = register_cvar("amx_chat_tag_ct_name", "Counter-Terrorist")
-    trTeam = register_cvar("amx_chat_tag_tr_name", "Terrorist")
-    specName = register_cvar("amx_chat_tag_spec_name", "SPEC")
-    deadName = register_cvar("amx_chat_tag_dead_name", "DEAD")
-    tagCust = register_cvar("amx_chat_tag_use_custom_folder", "0")
-    tagDest = register_cvar("amx_chat_tag_custom_folder_dest", "C:\ExampleFolder\cstrike\addons\amxmodx\configs")
+    register_plugin("Chat Tags With Filter", "1.4", "EfeDursun125")
+    ctTeam = register_cvar("amx_chat_tags_ct_name", "Counter-Terrorist")
+    trTeam = register_cvar("amx_chat_tags_tr_name", "Terrorist")
+    specName = register_cvar("amx_chat_tags_spec_name", "SPEC")
+    deadName = register_cvar("amx_chat_tags_dead_name", "DEAD")
+    tagCust = register_cvar("amx_chat_tags_use_custom_folder", "0")
+    tagDest = register_cvar("amx_chat_tags_custom_folder_dest", "C:\ExampleFolder\cstrike\addons\amxmodx\configs")
+    tagFilter = register_cvar("amx_chat_tags_enable_filter", "1")
     sayMsg = get_user_msgid("SayText")
     register_message(sayMsg, "customChatMessage")
     LoadWords()
     lastMessageTime = 0.0
 #if AMXX_VERSION_NUM > 182
-    hook_cvar_change(register_cvar("amx_chat_tag_change_names", "1"), "setHook")
+    hook_cvar_change(register_cvar("amx_chat_tags_change_names", "1"), "setHook")
+#endif
+}
+
+public plugin_end()
+{
+    ArrayDestroy(badWords)
+    ArrayDestroy(allowedWords)
+#if AMXX_VERSION_NUM > 182
+    ArrayDestroy(randomNames)
 #endif
 }
 
@@ -59,25 +68,24 @@ new id
 new id2
 public setHook(pcvar, const oldValue[], const newValue[])
 {
-	if (oldValue[0] != 1 && newValue[0] == 1)
-	{
-		id = register_forward(FM_ClientUserInfoChanged, "clientBlockName")
-		id2 = register_forward(FM_ClientUserInfoChanged, "clientBlockName", 1)
-	}
+    if (oldValue[0] != 1 && newValue[0] == 1)
+    {
+        id = register_forward(FM_ClientUserInfoChanged, "clientBlockName")
+        id2 = register_forward(FM_ClientUserInfoChanged, "clientBlockName", 1)
+    }
 
-	if (oldValue[0] == 1 && newValue[0] != 1)
-	{
-		unregister_forward(FM_ClientUserInfoChanged, id)
-		unregister_forward(FM_ClientUserInfoChanged, id2, 1)
-	}
+    if (oldValue[0] == 1 && newValue[0] != 1)
+    {
+        unregister_forward(FM_ClientUserInfoChanged, id)
+        unregister_forward(FM_ClientUserInfoChanged, id2, 1)
+    }
 }
 #endif
 
 public customChatMessage(msg_id, msg_dest, rcvr)
 {
     new string[26]
-    get_msg_arg_string(2, string, 25)
-
+    get_msg_arg_string(2, string, charsmax(string))
     if (!equal(string, "#Cstrike_Chat", 13))
         return PLUGIN_CONTINUE
 
@@ -90,7 +98,7 @@ public customChatMessage(msg_id, msg_dest, rcvr)
     new chatMessage[256]
     new player = get_msg_arg_int(1)
     new CsTeams:playerTeam = cs_get_user_team(player)
-    get_msg_arg_string(4, chatMessage, 255)
+    get_msg_arg_string(4, chatMessage, charsmax(chatMessage))
     trim(chatMessage)
     get_user_name(player, playerName, charsmax(playerName))
     new bool:isAlive = bool:is_user_alive(player)
@@ -181,7 +189,7 @@ public customChatMessage(msg_id, msg_dest, rcvr)
         }
     }
 
-    lastMessageTime = time + 0.111
+    lastMessageTime = time + 0.11111
     return PLUGIN_HANDLED
 }
 
@@ -200,7 +208,21 @@ public client_putinserver(id)
         clientBLOCK[id] = false
 #endif
     }
-    set_task(2.222, "client_load_tag", id)
+    set_task(2.0, "client_load_tag", id)
+}
+
+public vip_putinserver(id, level)
+{
+    if (level == 0)
+    {
+        clientTag[id] = "^x04[VIP]^x03 "
+        clientColor[id] = "^x01"
+    }
+    else
+    {
+        clientTag[id] = "^x04[MVP]^x03 "
+        clientColor[id] = "^x04"
+    }
 }
 
 #if AMXX_VERSION_NUM > 182
@@ -208,16 +230,15 @@ public clientBlockName(id)
 {
     if (!clientBLOCK[id])
         return FMRES_IGNORED
-    
-    new const name[] = "name"
+
     new szOldName[32], szNewName[32]
     pev(id, pev_netname, szOldName, charsmax(szOldName))
     if (szOldName[0])
     {
-        get_user_info(id, name, szNewName, charsmax(szNewName))
+        get_user_info(id, "name", szNewName, charsmax(szNewName))
         if (!equal(szOldName, szNewName))
         {
-            set_user_info(id, name, szOldName)
+            set_user_info(id, "name", szOldName)
             return FMRES_HANDLED
         }
     }
@@ -228,6 +249,9 @@ public clientBlockName(id)
 
 public client_load_tag(id)
 {
+    if (!is_user_connected(id))
+        return
+
     new playerName[255]
     get_user_name(id, playerName, charsmax(playerName))
     if (strlen(playerName) < 3)
@@ -245,13 +269,17 @@ public client_load_tag(id)
         formatex(path, charsmax(path), "%s", name)
     }
 
+    new filePath[256]
+    formatex(filePath, charsmax(filePath), "%s/econf/chat_tags", path)
+    if (!dir_exists(filePath))
+        mkdir(filePath)
+
     new fileName[255]
-    formatex(fileName, charsmax(fileName), "%s/chat_tags.ini", path)
+    formatex(fileName, charsmax(fileName), "%s/tag_lists.ini", filePath)
     new file = fopen(fileName, "rt")
     if (!file)
         return
-    
-    new line = 0
+
     new text[256], right[128], left[128]
     new size = charsmax(text)
     while (!feof(file)) 
@@ -259,9 +287,9 @@ public client_load_tag(id)
         fgets(file, text, size)
         replace(text, size, "^n", "")
 
-        if (text[0] == ';' || !text[0])
+        if (!text[0] || text[0] == ';')
             continue
-        
+
         strtok(text, left, charsmax(left), right, charsmax(right), '&')
         trim(left)
 
@@ -273,7 +301,7 @@ public client_load_tag(id)
                 clientColor[id] = "^x04"
             else if (containi(right, "[color=team]") != -1)
                 clientColor[id] = "^x03"
-        
+
             if (containi(right, "[filter=off]") != -1)
                 clientFilter[id] = false
 
@@ -287,8 +315,6 @@ public client_load_tag(id)
 
             formatex(clientTag[id], 33, "^x04[%s]^x03 ", right)
         }
-
-        line++
     }
 
     fclose(file)
@@ -299,11 +325,15 @@ public client_load_tag(id)
         clientBLOCK[id] = false
 
         new name[256]
-        get_user_name(id, name, 255)
+        get_user_name(id, name, charsmax(name))
         if (is_bad_word(id, name))
-            set_user_info(id, "name", randomNames[random_num(0, randomNamesCount - 1)])
-        
-        set_task(0.555, "client_block", id)
+        {
+            new temp[MAX_RANDOM_NAMES_LENGTH]
+            ArrayGetString(randomNames, random_num(0, ArraySize(randomNames) - 1), temp, MAX_RANDOM_NAMES_LENGTH)
+            set_user_info(id, "name", temp)
+        }
+
+        set_task(0.55555, "client_block", id)
     }
 #endif
 }
@@ -317,6 +347,12 @@ public client_block(id)
 
 LoadWords()
 {
+    badWords = ArrayCreate(MAX_BAD_WORDS_LENGTH, 1)
+    allowedWords = ArrayCreate(MAX_ALLOWED_WORDS_LENGTH, 1)
+#if AMXX_VERSION_NUM > 182
+    randomNames = ArrayCreate(MAX_RANDOM_NAMES_LENGTH, 1)
+#endif
+
     new path[255]
     if (get_pcvar_num(tagCust) != 1)
         get_configsdir(path, charsmax(path))
@@ -327,21 +363,25 @@ LoadWords()
         formatex(path, charsmax(path), "%s", name)
     }
 
+    new filePath[256]
+    formatex(filePath, charsmax(filePath), "%s/econf/chat_tags", path)
+    if (!dir_exists(filePath))
+        mkdir(filePath)
+
     new fileName[255]
-    formatex(fileName, charsmax(fileName), "%s/econf/chat_tags/word_blacklist.ini", path)
+    formatex(fileName, charsmax(fileName), "%s/word_blacklist.ini", filePath)
     new file = fopen(fileName, "rt")
     if (!file)
         return
 
     new size
-    badWordsCount = 0
     new lineText[MAX_BAD_WORDS_LENGTH]
-    while (badWordsCount < MAX_BAD_WORDS && !feof(file)) 
+    while (!feof(file)) 
     {
         fgets(file, lineText, MAX_BAD_WORDS_LENGTH)
         replace_all(lineText, MAX_BAD_WORDS_LENGTH, "^n", "")
 
-        if (lineText[0] == ';' || !lineText[0])
+        if (!lineText[0] || lineText[0] == ';')
             continue
 
         size = charsmax(lineText)
@@ -372,24 +412,31 @@ LoadWords()
         replace_all(lineText, size, "ä", "a")
 
         trim(lineText)
-        badWords[badWordsCount] = lineText
-        badWordsCount++
+        ArrayPushString(badWords, lineText)
     }
 
     fclose(file)
-    formatex(fileName, charsmax(fileName), "%s/econf/chat_tags/word_whitelist.ini", path)
+
+    // no need to care
+    if (ArraySize(badWords) <= 0)
+    {
+        // disable filter because its already empty...
+        set_pcvar_num(tagFilter, 0)
+        return
+    }
+
+    formatex(fileName, charsmax(fileName), "%s/word_whitelist.ini", filePath)
     file = fopen(fileName, "rt")
     if (!file)
         return
 
-    allowedWordsCount = 0
     new lineText2[MAX_ALLOWED_WORDS_LENGTH]
-    while (allowedWordsCount < MAX_ALLOWED_WORDS && !feof(file)) 
+    while (!feof(file))
     {
         fgets(file, lineText2, MAX_ALLOWED_WORDS_LENGTH)
         replace_all(lineText2, MAX_ALLOWED_WORDS_LENGTH, "^n", "")
 
-        if (lineText2[0] == ';' || !lineText2[0])
+        if (!lineText2[0] || lineText2[0] == ';')
             continue
 
         size = charsmax(lineText2)
@@ -420,31 +467,28 @@ LoadWords()
         replace_all(lineText2, size, "ä", "a")
 
         trim(lineText2)
-        allowedWords[allowedWordsCount] = lineText2
-        allowedWordsCount++
+        ArrayPushString(allowedWords, lineText2)
     }
 
     fclose(file)
 
 #if AMXX_VERSION_NUM > 182
-    formatex(fileName, charsmax(fileName), "%s/econf/chat_tags/random_names.ini", path)
+    formatex(fileName, charsmax(fileName), "%s/random_names.ini", filePath)
     file = fopen(fileName, "rt")
     if (!file)
         return
 
-    randomNamesCount = 0
     new lineText3[MAX_RANDOM_NAMES_LENGTH]
-    while (randomNamesCount < MAX_RANDOM_NAMES && !feof(file)) 
+    while (!feof(file)) 
     {
         fgets(file, lineText3, MAX_RANDOM_NAMES_LENGTH)
         replace_all(lineText3, MAX_RANDOM_NAMES_LENGTH, "^n", "")
 
-        if (lineText3[0] == ';' || !lineText3[0])
+        if (!lineText3[0] || lineText3[0] == ';')
             continue
 
         trim(lineText3)
-        randomNames[randomNamesCount] = lineText3
-        randomNamesCount++
+        ArrayPushString(randomNames, lineText3)
     }
 
     fclose(file)
@@ -453,20 +497,22 @@ LoadWords()
 
 stock bool:is_bad_word(id, word[])
 {
+    if (!get_pcvar_num(tagFilter))
+        return false
+
     if (!clientFilter[id])
         return false
 
-    if (badWordsCount == 0)
-        return false
-    
     new i
+    new temp[MAX_ALLOWED_WORDS_LENGTH]
+    new length = ArraySize(allowedWords)
     new cleaned_word[255]
     formatex(cleaned_word, charsmax(cleaned_word), word)
 
-    if (allowedWordsCount != 0)
+    for (i = 0; i < length; i++)
     {
-        for (i = 0; i < allowedWordsCount; i++)
-            replace_all(cleaned_word, charsmax(cleaned_word), allowedWords[i], "")
+        ArrayGetString(allowedWords, i, temp, MAX_ALLOWED_WORDS_LENGTH)
+        replace_all(cleaned_word, charsmax(cleaned_word), temp, "")
     }
 
     new size = charsmax(cleaned_word)
@@ -508,9 +554,12 @@ stock bool:is_bad_word(id, word[])
     replace_all(cleaned_word, charsmax(cleaned_word), "?", "")
     replace_all(cleaned_word, charsmax(cleaned_word), " ", "")
 
-    for (i = 0; i < badWordsCount; i++)
+    length = ArraySize(badWords)
+    new temp2[MAX_BAD_WORDS_LENGTH]
+    for (i = 0; i < length; i++)
     {
-        if (containi(cleaned_word, badWords[i]) != -1)
+        ArrayGetString(badWords, i, temp2, MAX_BAD_WORDS_LENGTH)
+        if (containi(cleaned_word, temp2) != -1)
             return true
     }
 
