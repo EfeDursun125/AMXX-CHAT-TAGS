@@ -1,4 +1,4 @@
-# AMXX CHAT TAGS
+# Amx Mod X CHAT TAGS
 This plugin lets you to give players custom chat tags and it has build-in swear/bad word filter plus it has whitelist for words
 
 # HOW TO USE?
