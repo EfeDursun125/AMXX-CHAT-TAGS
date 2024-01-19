@@ -101,10 +101,10 @@ public customChatMessage(msg_id, msg_dest, rcvr)
     get_msg_arg_string(4, chatMessage, charsmax(chatMessage))
     trim(chatMessage)
     get_user_name(player, playerName, charsmax(playerName))
-    new bool:isAlive = bool:is_user_alive(player)
-    new bool:spec = false
+    new isAlive = is_user_alive(player)
+    new spec = false
     new pSize = charsmax(playerTeamMessage)
-    new bool:teamSay = !equal(string, "#Cstrike_Chat_All", 17)
+    new teamSay = !equal(string, "#Cstrike_Chat_All", 17)
     if (!teamSay)
     {
         if (playerTeam != CS_TEAM_T && playerTeam != CS_TEAM_CT)
@@ -370,7 +370,7 @@ LoadWords()
 
     new fileName[255]
     formatex(fileName, charsmax(fileName), "%s/word_blacklist.ini", filePath)
-    new file = fopen(fileName, "rt")
+    new file = fopen(fileName, "rt+")
     if (!file)
         return
 
@@ -426,7 +426,7 @@ LoadWords()
     }
 
     formatex(fileName, charsmax(fileName), "%s/word_whitelist.ini", filePath)
-    file = fopen(fileName, "rt")
+    file = fopen(fileName, "rt+")
     if (!file)
         return
 
@@ -474,7 +474,7 @@ LoadWords()
 
 #if AMXX_VERSION_NUM > 182
     formatex(fileName, charsmax(fileName), "%s/random_names.ini", filePath)
-    file = fopen(fileName, "rt")
+    file = fopen(fileName, "rt+")
     if (!file)
         return
 
